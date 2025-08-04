@@ -1,0 +1,69 @@
+# FreePBX Simple Dialer - Git Ignore
+
+# Log files
+*.log
+logs/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-*
+*.swp
+*.swo
+
+# PHP specific
+vendor/
+composer.lock
+
+# FreePBX specific
+.htaccess
+*.sql
+
+# Reports (generated content)
+reports/
+simpledialer_reports/
+
+# Test data
+test_contacts.csv
+sample_*.csv
+
+# Local configuration overrides
+local_config.php
+dev_settings.php
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Audio files (can be large)
+*.wav
+*.mp3
+*.gsm
+*.ulaw
+*.alaw
+*.sln
+
+# Compressed files
+*.zip
+*.tar.gz
+*.rar
+
+# Documentation builds
+docs/_build/
+site/

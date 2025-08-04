@@ -1,0 +1,83 @@
+/* Simple Dialer Module CSS */
+
+.simpledialer-container {
+    padding: 20px;
+}
+
+.campaign-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.campaign-status.active {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.campaign-status.inactive {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.campaign-status.completed {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.progress-small {
+    height: 10px;
+    margin-bottom: 0;
+}
+
+.audio-file-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.campaign-actions .btn {
+    margin-right: 5px;
+}
+
+.stats-card {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.stats-number {
+    font-size: 24px;
+    font-weight: bold;
+    color: #007bff;
+}
+
+.stats-label {
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.contact-upload-area {
+    border: 2px dashed #dee2e6;
+    padding: 30px;
+    text-align: center;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.contact-upload-area:hover {
+    border-color: #007bff;
+    background-color: #f8f9fa;
+}
+
+.contacts-table {
+    max-height: 400px;
+    overflow-y: auto;
+}
