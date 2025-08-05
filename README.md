@@ -46,7 +46,7 @@ A comprehensive autodialer module for FreePBX that allows you to create and mana
 1. **Download the module:**
    ```bash
    cd /var/www/html/admin/modules/
-   git clone https://github.com/yourusername/freepbx-simple-dialer.git simpledialer
+   git clone https://github.com/PJL-Telecom/freepbx-simple-dialer.git simpledialer
    ```
 
 2. **Set permissions:**
