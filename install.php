@@ -100,31 +100,28 @@ if (file_exists($module_context_file)) {
     out(_('Warning: extensions_simpledialer.conf template not found in module'));
 }
 
-// Add include to extensions.conf if not already present
-$extensions_conf = '/etc/asterisk/extensions.conf';
+// Add include to extensions_custom.conf if not already present
+$extensions_custom_conf = '/etc/asterisk/extensions_custom.conf';
 $include_line = '#include extensions_simpledialer.conf';
 
-if (file_exists($extensions_conf)) {
-    $content = file_get_contents($extensions_conf);
-    if (strpos($content, $include_line) === false) {
-        // Find the line with extensions_custom.conf and add after it
-        $content = str_replace(
-            '#include extensions_custom.conf',
-            "#include extensions_custom.conf\n$include_line",
-            $content
-        );
-        file_put_contents($extensions_conf, $content);
-        out(_('Added include to extensions.conf'));
-    } else {
-        out(_('Include already exists in extensions.conf'));
-    }
-    
-    // Reload dialplan
-    exec('asterisk -rx "dialplan reload"');
-    out(_('Dialplan reloaded with AMD context'));
-} else {
-    out(_('Warning: extensions.conf not found'));
+// Ensure the file exists before trying to read/write it
+if (!file_exists($extensions_custom_conf)) {
+    touch($extensions_custom_conf);
 }
+
+$content = file_get_contents($extensions_custom_conf);
+
+if (strpos($content, $include_line) === false) {
+    // Append the include line at the end of the file, with newlines to be safe
+    file_put_contents($extensions_custom_conf, "\n" . $include_line . "\n", FILE_APPEND);
+    out(_('Added include to extensions_custom.conf'));
+} else {
+    out(_('Include already exists in extensions_custom.conf'));
+}
+
+// Reload dialplan to apply changes
+exec('asterisk -rx "dialplan reload"');
+out(_('Dialplan reloaded with AMD context'));
 
 out(_('Simple Dialer module installed successfully'));
 out(_('Sounds directory created at: ') . $sounds_dir);
