@@ -1,0 +1,64 @@
+<module>
+	<rawname>simpledialer</rawname>
+	<repo>standard</repo>
+	<name>Simple Dialer</name>
+	<version>1.1.0</version>
+	<publisher>PJL Telecom</publisher>
+	<license>GPLv3+</license>
+	<licenselink>http://www.gnu.org/licenses/gpl-3.0.txt</licenselink>
+	<signature_check>false</signature_check>
+	<category>Applications</category>
+	<description>
+		Simple automated dialer with concurrent call limiting, AMD voicemail detection, and campaign management
+	</description>
+	<changelog>
+		*1.1.0* Added AMD (Answering Machine Detection), improved installer, fixed FreePBX tamper warnings
+		*1.0.0* Initial Release
+	</changelog>
+	<depends>
+		<version>15.0</version>
+	</depends>
+	<menuitems>
+		<simpledialer needsenginedb="yes">Simple Dialer</simpledialer>
+	</menuitems>
+	<database>
+		<table name="simpledialer_campaigns">
+			<field name="id" type="integer" notnull="true" primarykey="true" autoincrement="true"/>
+			<field name="name" type="string" length="255" notnull="true"/>
+			<field name="description" type="text"/>
+			<field name="audio_file" type="string" length="255"/>
+			<field name="trunk" type="string" length="100"/>
+			<field name="caller_id" type="string" length="100"/>
+			<field name="max_concurrent" type="integer" default="5"/>
+			<field name="delay_between_calls" type="integer" default="2"/>
+			<field name="status" type="string" length="20" default="inactive"/>
+			<field name="scheduled_time" type="datetime" notnull="false"/>
+			<field name="created_at" type="datetime"/>
+			<field name="updated_at" type="datetime"/>
+		</table>
+		<table name="simpledialer_contacts">
+			<field name="id" type="integer" notnull="true" primarykey="true" autoincrement="true"/>
+			<field name="campaign_id" type="integer" notnull="true"/>
+			<field name="phone_number" type="string" length="20" notnull="true"/>
+			<field name="name" type="string" length="255"/>
+			<field name="status" type="string" length="20" default="pending"/>
+			<field name="call_attempts" type="integer" default="0"/>
+			<field name="last_called" type="datetime" notnull="false"/>
+			<field name="created_at" type="datetime" notnull="false"/>
+		</table>
+		<table name="simpledialer_call_logs">
+			<field name="id" type="integer" notnull="true" primarykey="true" autoincrement="true"/>
+			<field name="campaign_id" type="integer" notnull="true"/>
+			<field name="contact_id" type="integer" notnull="true"/>
+			<field name="phone_number" type="string" length="20" notnull="true"/>
+			<field name="call_id" type="string" length="100"/>
+			<field name="status" type="string" length="20"/>
+			<field name="duration" type="integer" default="0"/>
+			<field name="answer_time" type="datetime" notnull="false"/>
+			<field name="hangup_time" type="datetime" notnull="false"/>
+			<field name="hangup_cause" type="string" length="50"/>
+			<field name="voicemail_detected" type="boolean" default="false"/>
+			<field name="created_at" type="datetime" notnull="false"/>
+		</table>
+	</database>
+</module>
