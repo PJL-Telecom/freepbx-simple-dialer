@@ -10,16 +10,16 @@ if (file_exists($extensions_file)) {
     out(_('Removed extensions_simpledialer.conf'));
 }
 
-// Remove include from extensions.conf
-$extensions_conf = '/etc/asterisk/extensions.conf';
+// Remove include from extensions_custom.conf
+$extensions_custom_conf = '/etc/asterisk/extensions_custom.conf';
 $include_line = '#include extensions_simpledialer.conf';
 
-if (file_exists($extensions_conf)) {
-    $content = file_get_contents($extensions_conf);
-    $content = str_replace("\n$include_line", '', $content);
-    $content = str_replace($include_line, '', $content);
-    file_put_contents($extensions_conf, $content);
-    out(_('Removed include from extensions.conf'));
+if (file_exists($extensions_custom_conf)) {
+    $content = file_get_contents($extensions_custom_conf);
+    // Remove the include line and any surrounding empty lines
+    $content = preg_replace("/\n*{$include_line}\n*/", "\n", $content);
+    file_put_contents($extensions_custom_conf, $content);
+    out(_('Removed include from extensions_custom.conf'));
     
     // Reload dialplan
     exec('asterisk -rx "dialplan reload"');
