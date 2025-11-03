@@ -1,4 +1,4 @@
-# SimpleDailer Fixes Documentation
+# SimpleDialer Fixes Documentation
 
 ## Issues Found and Fixed
 

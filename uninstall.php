@@ -3,7 +3,7 @@ if (!defined('FREEPBX_IS_AUTH')) { die('No direct script access allowed'); }
 
 global $db;
 
-// Remove SimpleDailer dialplan files and includes
+// Remove SimpleDialer dialplan files and includes
 $extensions_file = '/etc/asterisk/extensions_simpledialer.conf';
 if (file_exists($extensions_file)) {
     unlink($extensions_file);

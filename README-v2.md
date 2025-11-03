@@ -1,8 +1,8 @@
-# SimpleDailer v2.0 - FreePBX Module
+# SimpleDialer v2.0 - FreePBX Module
 
 ## AMD (Answering Machine Detection) Implementation
 
-SimpleDailer v2.0 introduces full **AMD (Answering Machine Detection)** functionality, providing intelligent call handling that automatically detects human vs voicemail answers.
+SimpleDialer v2.0 introduces full **AMD (Answering Machine Detection)** functionality, providing intelligent call handling that automatically detects human vs voicemail answers.
 
 ## ✅ **What's New in v2.0**
 
@@ -167,7 +167,7 @@ asterisk -rx "dialplan show simpledialer-outbound"
 
 ## 🎉 **Version 2.0 Ready**
 
-SimpleDailer v2.0 with AMD is production-ready and includes:
+SimpleDialer v2.0 with AMD is production-ready and includes:
 - ✅ Full AMD implementation
 - ✅ Zero-configuration installation  
 - ✅ No FreePBX tamper warnings

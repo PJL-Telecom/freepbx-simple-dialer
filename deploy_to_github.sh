@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# SimpleDailer v2.0 GitHub Deployment Script
+# SimpleDialer v2.0 GitHub Deployment Script
 # Handles git initialization, commits, tagging, and push to GitHub
 
 set -e  # Exit on any error
 
-echo "🚀 SimpleDailer v2.0 GitHub Deployment Script"
+echo "🚀 SimpleDialer v2.0 GitHub Deployment Script"
 echo "=============================================="
 
 # Configuration
@@ -39,7 +39,7 @@ print_error() {
 
 # Check if we're in the right directory
 if [[ ! -f "module.xml" ]]; then
-    print_error "module.xml not found. Please run this script from the SimpleDailer module directory."
+    print_error "module.xml not found. Please run this script from the SimpleDialer module directory."
     exit 1
 fi
 
@@ -129,7 +129,7 @@ print_status "Files to be committed:"
 git diff --staged --name-status
 
 # Create commit message
-COMMIT_MSG="Release SimpleDailer v$VERSION with AMD Support
+COMMIT_MSG="Release SimpleDialer v$VERSION with AMD Support
 
 Major Features:
 - Added AMD (Answering Machine Detection) functionality
@@ -167,7 +167,7 @@ print_status "Creating version tag v$VERSION..."
 if git tag -l "v$VERSION" | grep -q "v$VERSION"; then
     print_warning "Tag v$VERSION already exists, skipping tag creation"
 else
-    git tag -a "v$VERSION" -m "SimpleDailer v$VERSION - AMD Implementation"
+    git tag -a "v$VERSION" -m "SimpleDialer v$VERSION - AMD Implementation"
     print_success "Tag v$VERSION created"
 fi
 
@@ -189,7 +189,7 @@ else
     echo "  git push origin --tags"
 fi
 
-print_success "✅ SimpleDailer v2.0 deployment complete!"
+print_success "✅ SimpleDialer v2.0 deployment complete!"
 echo ""
 echo "📋 Summary:"
 echo "  - Version: $VERSION"
@@ -198,4 +198,4 @@ echo "  - Installation: ✅ Zero-configuration"
 echo "  - Documentation: ✅ Complete"
 echo "  - GitHub ready: ✅ Tagged and pushed"
 echo ""
-echo "🎉 SimpleDailer v2.0 with AMD is now live on GitHub!"
+echo "🎉 SimpleDialer v2.0 with AMD is now live on GitHub!"

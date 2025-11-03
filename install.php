@@ -89,7 +89,7 @@ if (file_exists($daemon_script)) {
     chmod($daemon_script, 0755);
 }
 
-// Install SimpleDailer dialplan context as separate file
+// Install SimpleDialer dialplan context as separate file
 $extensions_file = '/etc/asterisk/extensions_simpledialer.conf';
 $module_context_file = __DIR__ . '/extensions_simpledialer.conf';
 
