@@ -133,8 +133,23 @@ A comprehensive autodialer module for FreePBX that allows you to create and mana
 #### Automatic Report Generation
 - Generated automatically when campaigns complete
 - Saved to `/var/log/asterisk/simpledialer_reports/`
-- Include call statistics, contact details, and success rates
+- Include detailed call statistics, contact details, and success rates
 - Emailed to system administrator if configured
+
+#### Detailed Call Status Tracking
+Reports now include granular call outcome statistics:
+- **Answered**: Calls that were successfully connected
+- **No Answer**: Calls that rang but weren't picked up
+- **Busy**: Line was busy
+- **Congestion**: Network or trunk congestion
+- **Unavailable**: Channel unavailable
+- **Cancelled**: Call was cancelled before completion
+
+Additional metrics:
+- Total and average call duration
+- Voicemail detection (human vs. answering machine)
+- Answer and hangup timestamps
+- Hangup cause codes for troubleshooting
 
 #### Report Management
 - View reports in the Reports tab
@@ -232,6 +247,18 @@ asterisk -rx "sip show peers" # or "pjsip show endpoints"
 asterisk -rx "dialplan show simpledialer-outbound"
 ```
 
+**Note on Trunk Authentication (v1.1.1+):**
+The module now routes calls through FreePBX's outbound routes (`Local/{number}@from-internal`) instead of dialing trunks directly. This ensures:
+- Proper trunk authentication (no more 403 errors)
+- Outbound route rules are applied correctly
+- Caller ID manipulation works as configured
+- Compatible with all trunk types (PJSIP, SIP, IAX, etc.)
+
+If you're upgrading from an older version and experiencing issues, ensure:
+1. Your outbound routes are configured correctly in FreePBX
+2. The trunk you selected in the campaign is accessible via outbound routes
+3. Test by making a regular call from an extension first
+
 ### Log Files
 - **Scheduler**: `/var/log/asterisk/simpledialer_scheduler.log`
 - **Campaign Logs**: `/var/log/asterisk/simpledialer_[campaign_id].log`
@@ -264,6 +291,20 @@ This project is licensed under the GPL v3 License - see the LICENSE file for det
 - **Community**: Join the FreePBX community forums
 
 ## Changelog
+
+### v1.1.1 (Latest)
+- **Fixed**: 403 trunk authentication errors - campaigns now route through FreePBX outbound routes instead of direct trunk dialing
+- **Added**: Granular call status tracking (answered, no-answer, busy, congestion, unavailable, cancelled)
+- **Added**: Call duration tracking (total and average)
+- **Added**: Voicemail detection in reports
+- **Added**: Answer/hangup timestamps and hangup cause codes
+- **Enhanced**: Campaign reports now show detailed status breakdown for better analytics
+
+### v1.1.0
+- Added AMD (Answering Machine Detection) support
+- New dialplan context for voicemail detection
+- Updated database schema
+- Improved deployment scripts
 
 ### v1.0.0
 - Initial release
