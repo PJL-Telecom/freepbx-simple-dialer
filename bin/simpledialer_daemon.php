@@ -191,14 +191,15 @@ class SimpleDialerDaemon {
         echo "DEBUG: CallerID: {$this->campaign['caller_id']}\n";
         echo "DEBUG: Audio file: {$this->campaign['audio_file']}\n";
         
-        // Prepare variables
-        $variables = array(
-            'CALL_ID' => $call_id,
-            'AUDIO_FILE' => $this->campaign['audio_file'],
-            'CAMPAIGN_ID' => $this->campaign_id,
-            'CONTACT_ID' => $contact['id']
-        );
-        
+        // Prepare variables - including caller ID override for Local channel
+        $cid_num = preg_replace('/[^0-9+]/', '', $this->campaign['caller_id']); // Extract number
+        $cid_name = preg_replace('/<.*?>/', '', $this->campaign['caller_id']); // Extract name
+        $cid_name = trim(str_replace(['"', $cid_num], '', $cid_name)); // Clean up name
+
+        if (empty($cid_name)) {
+            $cid_name = 'Campaign';
+        }
+
         // Make the call using AMI - use simpledialer-outbound context with AMD
         $originate_params = array(
             'Channel' => $channel,
@@ -207,7 +208,18 @@ class SimpleDialerDaemon {
             'Priority' => '1',
             'Timeout' => '30000',
             'CallerID' => $this->campaign['caller_id'],
-            'Variable' => 'CALL_ID=' . $call_id . ',AUDIO_FILE=' . $this->campaign['audio_file'] . ',CAMPAIGN_ID=' . $this->campaign_id . ',CONTACT_ID=' . $contact['id'] . ',__EXTEN_OVERRIDE_CALLERID=' . $this->campaign['caller_id'],
+            'Variable' => implode(',', array(
+                'CALL_ID=' . $call_id,
+                'AUDIO_FILE=' . $this->campaign['audio_file'],
+                'CAMPAIGN_ID=' . $this->campaign_id,
+                'CONTACT_ID=' . $contact['id'],
+                'CHANNEL(accountcode)=' . $cid_num,
+                'CALLERID(num)=' . $cid_num,
+                'CALLERID(name)=' . $cid_name,
+                'CALLERID(all)=' . $this->campaign['caller_id'],
+                'CONNECTEDLINE(num)=' . $cid_num,
+                'CONNECTEDLINE(name)=' . $cid_name
+            )),
             'Async' => 'true'
         );
         
@@ -314,8 +326,14 @@ class SimpleDialerDaemon {
         $contact_status = ($status == 'ANSWER') ? 'called' : 'failed';
         $this->updateContactStatus($call_info['contact_id'], $contact_status);
 
-        // Mark this call as status_updated so cleanupCompletedCalls doesn't override it
-        $this->active_calls[$call_id]['status_updated'] = true;
+        // If this UserEvent has a hangup_time, the call is complete - remove from active calls immediately
+        if (!empty($hangup_time)) {
+            echo "Call {$call_id} completed with hangup_time - removing from active calls\n";
+            unset($this->active_calls[$call_id]);
+        } else {
+            // Mark this call as status_updated so cleanupCompletedCalls doesn't override it
+            $this->active_calls[$call_id]['status_updated'] = true;
+        }
 
         echo "Updated call {$call_id} with status: {$mapped_status}, duration: {$duration}s, voicemail: {$voicemail}\n";
     }
