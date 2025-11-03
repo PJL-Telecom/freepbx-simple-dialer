@@ -271,11 +271,29 @@ class SimpleDialerDaemon {
     }
 
     private function processAMIEvents() {
-        // Read and process any pending AMI events
-        while ($event = $this->ami->wait_response(false)) {
-            if (isset($event['Event']) && $event['Event'] == 'UserEvent') {
-                if (isset($event['UserEvent']) && $event['UserEvent'] == 'SimpleDialerStatus') {
-                    $this->handleCallStatusEvent($event);
+        // Poll database for call status updates instead of AMI events
+        // This is more reliable than waiting for AMI UserEvents
+        echo "DEBUG: Checking database for call status updates...\n";
+
+        foreach ($this->active_calls as $call_id => $call_info) {
+            // Query database for this call's current status
+            $sql = "SELECT status, duration, hangup_time FROM simpledialer_call_logs WHERE call_id = ?";
+            $sth = $this->db->prepare($sql);
+            $sth->execute(array($call_id));
+            $call_data = $sth->fetch(PDO::FETCH_ASSOC);
+
+            if ($call_data) {
+                // If call has a hangup_time or non-zero duration, it's completed
+                if (!empty($call_data['hangup_time']) || $call_data['duration'] > 0) {
+                    echo "Call {$call_id} completed with status: {$call_data['status']}, duration: {$call_data['duration']}s\n";
+
+                    // Update contact status based on call result
+                    $contact_status = ($call_data['status'] == 'answered') ? 'called' : 'failed';
+                    $this->updateContactStatus($call_info['contact_id'], $contact_status);
+
+                    // Remove from active calls
+                    unset($this->active_calls[$call_id]);
+                    echo "Active calls remaining: " . count($this->active_calls) . "\n";
                 }
             }
         }
