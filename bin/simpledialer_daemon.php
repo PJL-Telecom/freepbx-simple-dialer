@@ -279,15 +279,21 @@ class SimpleDialerDaemon {
     }
 
     private function handleCallStatusEvent($event) {
-        $call_id = isset($event['CallID']) ? $event['CallID'] : null;
-        $status = isset($event['Status']) ? $event['Status'] : 'UNKNOWN';
+        // Debug: print entire event
+        echo "DEBUG: Received UserEvent: " . print_r($event, true) . "\n";
+
+        $call_id = isset($event['CallID']) ? trim($event['CallID']) : null;
+        $status = isset($event['Status']) ? trim($event['Status']) : 'UNKNOWN';
         $duration = isset($event['Duration']) ? intval($event['Duration']) : 0;
-        $answer_time = isset($event['AnswerTime']) ? $event['AnswerTime'] : null;
-        $hangup_time = isset($event['HangupTime']) ? $event['HangupTime'] : null;
-        $hangup_cause = isset($event['HangupCause']) ? $event['HangupCause'] : '';
+        $answer_time = isset($event['AnswerTime']) ? trim($event['AnswerTime']) : null;
+        $hangup_time = isset($event['HangupTime']) ? trim($event['HangupTime']) : null;
+        $hangup_cause = isset($event['HangupCause']) ? trim($event['HangupCause']) : '';
         $voicemail = isset($event['Voicemail']) ? intval($event['Voicemail']) : 0;
 
+        echo "DEBUG: Parsed - CallID: '$call_id', Status: '$status', HangupTime: '$hangup_time'\n";
+
         if (!$call_id || !isset($this->active_calls[$call_id])) {
+            echo "DEBUG: Call ID not found in active_calls or empty\n";
             return;
         }
 
@@ -324,12 +330,15 @@ class SimpleDialerDaemon {
         $this->updateContactStatus($call_info['contact_id'], $contact_status);
 
         // If this UserEvent has a hangup_time, the call is complete - remove from active calls immediately
-        if (!empty($hangup_time)) {
-            echo "Call {$call_id} completed with hangup_time - removing from active calls\n";
+        // Also remove if status is ANSWER and we have a duration (call completed successfully)
+        if (!empty($hangup_time) || ($status == 'ANSWER' && $duration > 0)) {
+            echo "Call {$call_id} completed (hangup_time: '$hangup_time', duration: {$duration}s) - removing from active calls\n";
             unset($this->active_calls[$call_id]);
+            echo "Active calls remaining: " . count($this->active_calls) . "\n";
         } else {
             // Mark this call as status_updated so cleanupCompletedCalls doesn't override it
             $this->active_calls[$call_id]['status_updated'] = true;
+            echo "Call {$call_id} status updated but keeping in active_calls (no hangup_time or duration yet)\n";
         }
 
         echo "Updated call {$call_id} with status: {$mapped_status}, duration: {$duration}s, voicemail: {$voicemail}\n";
