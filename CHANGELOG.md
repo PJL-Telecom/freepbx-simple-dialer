@@ -25,7 +25,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Campaign caller ID now displays correctly on receiving end
   - Works with both name+number format: "Name" <number> and number-only format
 
+- **Progress Bar Not Updating Live**: Fixed real-time progress tracking during campaigns
+  - Created AGI script to handle database updates (replaces failed mysql System() calls)
+  - Campaign status now set to "active" when calls begin
+  - Contact status updates to "calling" while call is in progress
+  - Frontend shows live progress: "X/Y calling" updates every 2 seconds
+  - Fixed premature campaign completion caused by Local channel disappearing
+  - Fixed incorrect duration calculation (was showing millions of seconds)
+  - Prevented h-extension from overwriting correct status with empty DIALSTATUS
+
 ### Added
+- **AGI Database Update Script**: New `agi/simpledialer_update.php` for reliable database updates
+  - Uses FreePBX database connection (no authentication issues)
+  - Maps Asterisk DIALSTATUS to user-friendly names
+  - Called directly from dialplan when calls complete
+  - Logs all updates to Asterisk log for debugging
+  - Replaces unreliable System(mysql...) approach
+
 - **Granular Call Status Tracking**: Implemented detailed call outcome reporting
   - Status breakdown: answered, no-answer, busy, congestion, unavailable, cancelled
   - Call duration tracking (total and average)
@@ -38,6 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Call Metrics section with duration and voicemail statistics
   - Accurate success rates based on actual answered calls (not just dialed)
   - Better analytics for campaign performance evaluation
+
+- **Live Progress Tracking**: Real-time campaign progress updates in web interface
+  - Campaign status shows "active" during calls
+  - Contact status shows "calling" while call in progress
+  - Progress bar updates every 2 seconds via database polling
+  - Shows "X/Y calling" → "X/Y completed" progression
 
 ### Changed
 - **Dialplan Enhancement**: Updated `extensions_simpledialer.conf` to capture detailed call information
@@ -60,24 +82,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `voicemail_detected` - Now properly tracked from AMD results
 
 ### Upgrade Notes
-- Existing installations should pull latest code and reload dialplan:
+- Existing installations should pull latest code, install AGI script, and reload dialplan:
   ```bash
   cd /var/www/html/admin/modules/simpledialer
   git pull origin main
+
+  # Install AGI script
+  cp agi/simpledialer_update.php /var/lib/asterisk/agi-bin/
+  chmod +x /var/lib/asterisk/agi-bin/simpledialer_update.php
+  chown asterisk:asterisk /var/lib/asterisk/agi-bin/simpledialer_update.php
+
+  # Update dialplan
+  cp extensions_simpledialer.conf /etc/asterisk/
   asterisk -rx "dialplan reload"
   ```
 - No database migrations required
 - Existing call logs will not be retroactively updated
-- New campaigns will immediately benefit from enhanced tracking
+- New campaigns will immediately benefit from enhanced tracking and live progress
 
 ### User Impact
 - Users reported: "All calls show 'answered' regardless of outcome" - **FIXED**
 - Users reported: "Getting 403 from trunk when selecting PJSIP trunk" - **FIXED**
 - Users reported: "Campaign stuck in-progress after calls complete" - **FIXED**
 - Users reported: "Outbound caller ID not being honored" - **FIXED**
+- Users reported: "Progress bar doesn't update during calls" - **FIXED**
 - Campaign reports now provide actionable insights for improving call campaigns
 - Better understanding of why calls fail (busy vs no-answer vs technical issues)
 - Campaigns now complete properly and show accurate final status
+- Live progress tracking shows real-time campaign execution
+- Call durations are now accurate (previously showed incorrect values)
 
 ## [1.1.0] - 2025-08-08
 
