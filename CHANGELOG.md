@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Compatible with all trunk types (PJSIP, SIP, IAX, etc.)
   - Caller ID manipulation now works as configured in FreePBX
 
+- **Campaign Stuck In-Progress**: Fixed daemon getting stuck waiting for calls to complete
+  - Daemon now immediately removes calls from active tracking when UserEvent includes hangup_time
+  - Prevents infinite waiting for channel status checks
+  - Campaigns now properly transition to "completed" status when all calls finish
+
+- **Caller ID Not Honored**: Fixed caller ID not propagating through Local channels
+  - Now explicitly sets CALLERID(num), CALLERID(name), and CONNECTEDLINE variables
+  - Properly parses caller ID from campaign settings
+  - Campaign caller ID now displays correctly on receiving end
+  - Works with both name+number format: "Name" <number> and number-only format
+
 ### Added
 - **Granular Call Status Tracking**: Implemented detailed call outcome reporting
   - Status breakdown: answered, no-answer, busy, congestion, unavailable, cancelled
@@ -62,8 +73,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### User Impact
 - Users reported: "All calls show 'answered' regardless of outcome" - **FIXED**
 - Users reported: "Getting 403 from trunk when selecting PJSIP trunk" - **FIXED**
+- Users reported: "Campaign stuck in-progress after calls complete" - **FIXED**
+- Users reported: "Outbound caller ID not being honored" - **FIXED**
 - Campaign reports now provide actionable insights for improving call campaigns
 - Better understanding of why calls fail (busy vs no-answer vs technical issues)
+- Campaigns now complete properly and show accurate final status
 
 ## [1.1.0] - 2025-08-08
 
