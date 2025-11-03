@@ -85,11 +85,9 @@ class SimpleDialerDaemon {
         echo "Starting campaign: {$this->campaign['name']}\n";
         echo "Max concurrent: {$this->campaign['max_concurrent']}\n";
         echo "Delay between calls: {$this->campaign['delay_between_calls']} seconds\n";
-        
-        $successful = 0;
-        $failed = 0;
+
         $total = count($this->contacts);
-        
+
         foreach ($this->contacts as $index => $contact) {
             // Check for stop signal
             if (file_exists($this->stop_file)) {
@@ -101,20 +99,19 @@ class SimpleDialerDaemon {
             $this->waitForAvailableSlot();
             
             echo "Calling " . ($index + 1) . "/$total: {$contact['phone_number']}\n";
-            
+
             $call_result = $this->makeCall($contact);
             if ($call_result['success']) {
-                $successful++;
-                $this->updateContactStatus($contact['id'], 'called');
-                $this->updateCallStatus($call_result['call_id'], 'answered');
+                echo "Call queued successfully for {$contact['phone_number']}\n";
             } else {
-                $failed++;
+                echo "Failed to queue call for {$contact['phone_number']}\n";
+                // Only update status if the originate request itself failed
                 $this->updateContactStatus($contact['id'], 'failed');
                 if (isset($call_result['call_id'])) {
                     $this->updateCallStatus($call_result['call_id'], 'failed');
                 }
             }
-            
+
             // Delay between call attempts
             if ($index < $total - 1) {
                 sleep($this->campaign['delay_between_calls']);
@@ -144,16 +141,20 @@ class SimpleDialerDaemon {
         }
         
         echo "Campaign completed\n";
-        echo "Successful: $successful\n";
-        echo "Failed: $failed\n";
-        
+
+        // Get actual call statistics from database
+        $stats = $this->getCallStatistics();
+        echo "Answered: {$stats['answered']}\n";
+        echo "Failed: {$stats['failed']}\n";
+        echo "Total: {$stats['total']}\n";
+
         // Update campaign status
         echo "Updating campaign status to 'completed'...\n";
         $this->updateCampaignStatus('completed');
         echo "Campaign status updated successfully\n";
-        
+
         // Generate and save campaign report
-        $this->generateAndEmailCampaignReport($successful, $failed, $total);
+        $this->generateAndEmailCampaignReport($stats['answered'], $stats['failed'], $stats['total']);
         
         // Cleanup old reports (older than 7 days)
         $this->cleanupOldReports();
@@ -414,7 +415,27 @@ class SimpleDialerDaemon {
             return false;
         }
     }
-    
+
+    private function getCallStatistics() {
+        // Get actual call outcome statistics from database
+        $sql = "SELECT
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'answered' THEN 1 ELSE 0 END) as answered,
+                    SUM(CASE WHEN status != 'answered' AND status != 'initiated' THEN 1 ELSE 0 END) as failed
+                FROM simpledialer_call_logs
+                WHERE campaign_id = ?";
+
+        $sth = $this->db->prepare($sql);
+        $sth->execute(array($this->campaign_id));
+        $stats = $sth->fetch(PDO::FETCH_ASSOC);
+
+        return array(
+            'total' => (int)$stats['total'],
+            'answered' => (int)$stats['answered'],
+            'failed' => (int)$stats['failed']
+        );
+    }
+
     private function logCall($contact_id, $call_id, $status) {
         $sql = "INSERT INTO simpledialer_call_logs (campaign_id, contact_id, phone_number, call_id, status, duration, hangup_cause, voicemail_detected, created_at) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())";
