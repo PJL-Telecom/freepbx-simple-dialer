@@ -201,24 +201,21 @@ class SimpleDialerDaemon {
         }
 
         // Make the call using AMI - use simpledialer-outbound context with AMD
+        // Use __ prefix to inherit variables through Local channel
         $originate_params = array(
             'Channel' => $channel,
             'Context' => 'simpledialer-outbound',
             'Exten' => 's',
             'Priority' => '1',
             'Timeout' => '30000',
-            'CallerID' => $this->campaign['caller_id'],
+            'CallerID' => '"' . $cid_name . '" <' . $cid_num . '>',
             'Variable' => implode(',', array(
                 'CALL_ID=' . $call_id,
                 'AUDIO_FILE=' . $this->campaign['audio_file'],
                 'CAMPAIGN_ID=' . $this->campaign_id,
                 'CONTACT_ID=' . $contact['id'],
-                'CHANNEL(accountcode)=' . $cid_num,
-                'CALLERID(num)=' . $cid_num,
-                'CALLERID(name)=' . $cid_name,
-                'CALLERID(all)=' . $this->campaign['caller_id'],
-                'CONNECTEDLINE(num)=' . $cid_num,
-                'CONNECTEDLINE(name)=' . $cid_name
+                '__CAMPAIGN_CID_NUM=' . $cid_num,
+                '__CAMPAIGN_CID_NAME=' . $cid_name
             )),
             'Async' => 'true'
         );
