@@ -215,7 +215,9 @@ class SimpleDialerDaemon {
                 'CAMPAIGN_ID=' . $this->campaign_id,
                 'CONTACT_ID=' . $contact['id'],
                 '__CAMPAIGN_CID_NUM=' . $cid_num,
-                '__CAMPAIGN_CID_NAME=' . $cid_name
+                '__CAMPAIGN_CID_NAME=' . $cid_name,
+                '__KEEPCID=TRUE',  // Prevent FreePBX from overriding caller ID
+                '__USECID_FORCE=' . $cid_num  // Force use of campaign caller ID
             )),
             'Async' => 'true'
         );
