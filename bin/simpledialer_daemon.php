@@ -86,6 +86,9 @@ class SimpleDialerDaemon {
         echo "Max concurrent: {$this->campaign['max_concurrent']}\n";
         echo "Delay between calls: {$this->campaign['delay_between_calls']} seconds\n";
 
+        // Set campaign to active so frontend shows live progress
+        $this->updateCampaignStatus('active');
+
         $total = count($this->contacts);
 
         foreach ($this->contacts as $index => $contact) {
@@ -103,6 +106,8 @@ class SimpleDialerDaemon {
             $call_result = $this->makeCall($contact);
             if ($call_result['success']) {
                 echo "Call queued successfully for {$contact['phone_number']}\n";
+                // Update contact to show call is in progress
+                $this->updateContactStatus($contact['id'], 'calling');
             } else {
                 echo "Failed to queue call for {$contact['phone_number']}\n";
                 // Only update status if the originate request itself failed
