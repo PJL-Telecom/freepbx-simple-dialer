@@ -247,25 +247,18 @@ class SimpleDialerDaemon {
     }
     
     private function cleanupCompletedCalls() {
-        // Process any pending AMI events first
+        // Poll database for call status updates
+        // Do NOT check channel status - Local channels disappear quickly but call is still active
         $this->processAMIEvents();
 
+        // Timeout safety: if a call has been active for more than 10 minutes, force complete it
         $current_time = time();
         foreach ($this->active_calls as $call_id => $call_info) {
-            // Check if call is still active via AMI
-            $channel_status = $this->checkChannelStatus($call_info['channel']);
-
-            // Remove calls that are no longer active or older than 2 minutes
-            if (!$channel_status || ($current_time - $call_info['start_time'] > 120)) {
-                // Only update if we haven't received a UserEvent status yet
-                if (!isset($call_info['status_updated'])) {
-                    echo "Call completed without UserEvent, marking as completed: {$call_info['phone_number']}\n";
-                    $this->updateContactStatus($call_info['contact_id'], 'called');
-                    $this->updateCallStatus($call_id, 'completed');
-                }
-
+            if ($current_time - $call_info['start_time'] > 600) {
+                echo "WARNING: Call {$call_id} timeout after 10 minutes, force completing\n";
+                $this->updateContactStatus($call_info['contact_id'], 'called');
+                $this->updateCallStatus($call_id, 'timeout');
                 unset($this->active_calls[$call_id]);
-                echo "Cleaned up completed call: {$call_info['phone_number']}\n";
             }
         }
     }
