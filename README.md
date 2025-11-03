@@ -49,26 +49,59 @@ A comprehensive autodialer module for FreePBX that allows you to create and mana
    git clone https://github.com/PJL-Telecom/freepbx-simple-dialer.git simpledialer
    ```
 
-2. **Set permissions:**
+2. **Install AGI script (required for call status tracking):**
+   ```bash
+   cp /var/www/html/admin/modules/simpledialer/agi/simpledialer_update.php /var/lib/asterisk/agi-bin/
+   chmod +x /var/lib/asterisk/agi-bin/simpledialer_update.php
+   chown asterisk:asterisk /var/lib/asterisk/agi-bin/simpledialer_update.php
+   ```
+
+3. **Install dialplan context:**
+   ```bash
+   cp /var/www/html/admin/modules/simpledialer/extensions_simpledialer.conf /etc/asterisk/
+   asterisk -rx "dialplan reload"
+   ```
+
+4. **Set permissions:**
    ```bash
    chmod +x /var/www/html/admin/modules/simpledialer/bin/*.php
    chown -R asterisk:asterisk /var/www/html/admin/modules/simpledialer/
    ```
 
-3. **Install the module:**
+5. **Install the module:**
    - Go to Admin → Module Admin in FreePBX
    - Click "Scan for new modules"
    - Find "Simple Dialer" and click Install
    - Apply configuration changes
 
-4. **Set up scheduler (required for automatic scheduling):**
+6. **Set up scheduler (required for automatic scheduling):**
    ```bash
    # Add to crontab for automatic campaign scheduling
    crontab -e
-   
+
    # Add this line:
    * * * * * php /var/www/html/admin/modules/simpledialer/bin/scheduler.php >> /var/log/asterisk/simpledialer_scheduler.log 2>&1
    ```
+
+### Upgrading from Previous Versions
+
+If you're upgrading from an earlier version:
+
+```bash
+cd /var/www/html/admin/modules/simpledialer
+git pull origin main
+
+# Install/update AGI script
+cp agi/simpledialer_update.php /var/lib/asterisk/agi-bin/
+chmod +x /var/lib/asterisk/agi-bin/simpledialer_update.php
+chown asterisk:asterisk /var/lib/asterisk/agi-bin/simpledialer_update.php
+
+# Update dialplan
+cp extensions_simpledialer.conf /etc/asterisk/
+asterisk -rx "dialplan reload"
+
+# No database migrations required
+```
 
 ## Usage
 
@@ -115,15 +148,17 @@ A comprehensive autodialer module for FreePBX that allows you to create and mana
 ### Monitoring Campaigns
 
 #### Real-time Updates
-- Auto-refresh every 30 seconds when viewing campaigns
-- Progress bars show completion status
-- Color coding: Blue (active), Green (completed), Red (stopped)
+- **Live Progress Tracking**: Campaign progress updates every 2 seconds during active calls
+- **Frontend Auto-refresh**: Page refreshes every 30 seconds to show latest campaign status
+- **Progress Bars**: Visual completion status with live "X/Y calling" indicators
+- **Color Coding**: Blue (active), Green (completed), Red (stopped)
+- **Call Status**: Shows "calling" → "called" transition in real-time
 
 #### Campaign Status
 - **Inactive**: Newly created, ready to start
 - **Scheduled**: Future scheduled time set
 - **Pending**: Past scheduled time, waiting for scheduler
-- **Active**: Currently running and making calls
+- **Active**: Currently running and making calls (shows live progress)
 - **Completed**: Finished successfully
 - **Stopped**: Manually stopped
 - **Failed**: Error occurred during execution
@@ -193,13 +228,18 @@ php /var/www/html/admin/modules/simpledialer/bin/scheduler.php
 ```
 simpledialer/
 ├── README.md                          # This file
+├── CHANGELOG.md                       # Detailed version history
 ├── module.xml                         # FreePBX module definition
 ├── Simpledialer.class.php            # Main module class
 ├── page.simpledialer.php             # Web interface
+├── extensions_simpledialer.conf      # Asterisk dialplan context
+├── agi/
+│   └── simpledialer_update.php       # AGI script for database updates
 ├── bin/
 │   ├── simpledialer_daemon.php       # Campaign dialing daemon
 │   └── scheduler.php                  # Automatic campaign scheduler
-└── install.php                       # Installation script
+├── install.php                       # Installation script
+└── uninstall.php                     # Uninstallation script
 ```
 
 ## Database Schema
@@ -293,12 +333,29 @@ This project is licensed under the GPL v3 License - see the LICENSE file for det
 ## Changelog
 
 ### v1.1.1 (Latest)
-- **Fixed**: 403 trunk authentication errors - campaigns now route through FreePBX outbound routes instead of direct trunk dialing
-- **Added**: Granular call status tracking (answered, no-answer, busy, congestion, unavailable, cancelled)
-- **Added**: Call duration tracking (total and average)
-- **Added**: Voicemail detection in reports
-- **Added**: Answer/hangup timestamps and hangup cause codes
-- **Enhanced**: Campaign reports now show detailed status breakdown for better analytics
+
+#### Fixed Issues
+- **403 Trunk Authentication Errors**: Campaigns now route calls through FreePBX outbound routes (`Local/{number}@from-internal`) instead of dialing trunks directly. Ensures proper trunk authentication and routing rules are applied.
+- **All Calls Showing "Answered"**: Implemented granular call status tracking with accurate reporting of answered, no-answer, busy, congestion, unavailable, and cancelled calls.
+- **Campaign Stuck In-Progress**: Fixed daemon getting stuck waiting for calls to complete. Campaigns now properly transition to "completed" status.
+- **Caller ID Not Honored**: Fixed caller ID propagation through Local channels. Campaign caller ID now displays correctly on receiving end.
+- **Progress Bar Not Updating Live**: Implemented real-time progress tracking with database polling. Frontend now shows live updates every 2 seconds during campaign execution.
+- **Incorrect Call Durations**: Fixed duration calculation bug that showed millions of seconds. Now uses proper ANSWER_EPOCH for accurate duration tracking.
+- **Premature Campaign Completion**: Removed channel status checking that caused campaigns to complete before calls finished.
+
+#### New Features
+- **AGI Database Update Script**: New `agi/simpledialer_update.php` provides reliable database updates using FreePBX's authenticated connection
+- **Live Progress Tracking**: Real-time campaign progress with "X/Y calling" updates during active calls
+- **Granular Call Status**: Detailed breakdown of call outcomes in reports
+- **Enhanced Campaign Reports**: Comprehensive statistics with call metrics, duration analysis, and voicemail detection
+- **Active Campaign Status**: Campaign status now changes to "active" during execution for better visibility
+
+#### Technical Improvements
+- Database polling every 2 seconds for status updates
+- Campaign and contact status tracking throughout call lifecycle
+- Prevention of duplicate database updates via flag system
+- Proper handling of h-extension to avoid status overwrites
+- Maps Asterisk DIALSTATUS to user-friendly status names
 
 ### v1.1.0
 - Added AMD (Answering Machine Detection) support
