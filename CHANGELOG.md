@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-11-03
+
+### Fixed
+- **403 Trunk Authentication Errors**: Campaigns now route calls through FreePBX outbound routes (`Local/{number}@from-internal`) instead of dialing trunks directly
+  - Ensures proper trunk authentication and routing rules are applied
+  - Resolves issue where campaigns could dial extensions but not external trunks
+  - Compatible with all trunk types (PJSIP, SIP, IAX, etc.)
+  - Caller ID manipulation now works as configured in FreePBX
+
+### Added
+- **Granular Call Status Tracking**: Implemented detailed call outcome reporting
+  - Status breakdown: answered, no-answer, busy, congestion, unavailable, cancelled
+  - Call duration tracking (total and average)
+  - Answer and hangup timestamps for each call
+  - Hangup cause codes for troubleshooting
+  - Voicemail detection count in reports
+
+- **Enhanced Campaign Reports**: Reports now show comprehensive statistics
+  - Call Status Breakdown section with counts for each outcome
+  - Call Metrics section with duration and voicemail statistics
+  - Accurate success rates based on actual answered calls (not just dialed)
+  - Better analytics for campaign performance evaluation
+
+### Changed
+- **Dialplan Enhancement**: Updated `extensions_simpledialer.conf` to capture detailed call information
+  - Added UserEvent reporting to send call status back to daemon
+  - Implemented h-extension for proper hangup handling
+  - Captures DIALSTATUS, duration, and hangup causes automatically
+
+- **Daemon Event Processing**: Enhanced daemon to process AMI UserEvents
+  - Added `processAMIEvents()` method to listen for status updates
+  - Added `handleCallStatusEvent()` to process and store detailed call data
+  - Added `mapDialStatus()` to convert Asterisk statuses to user-friendly names
+  - Real-time database updates with call outcomes
+
+### Database
+- No schema changes required - existing fields in `simpledialer_call_logs` table now properly utilized:
+  - `duration` - Now populated with actual call duration
+  - `answer_time` - Now populated with timestamp when call was answered
+  - `hangup_time` - Now populated with timestamp when call ended
+  - `hangup_cause` - Now populated with Asterisk hangup cause
+  - `voicemail_detected` - Now properly tracked from AMD results
+
+### Upgrade Notes
+- Existing installations should pull latest code and reload dialplan:
+  ```bash
+  cd /var/www/html/admin/modules/simpledialer
+  git pull origin main
+  asterisk -rx "dialplan reload"
+  ```
+- No database migrations required
+- Existing call logs will not be retroactively updated
+- New campaigns will immediately benefit from enhanced tracking
+
+### User Impact
+- Users reported: "All calls show 'answered' regardless of outcome" - **FIXED**
+- Users reported: "Getting 403 from trunk when selecting PJSIP trunk" - **FIXED**
+- Campaign reports now provide actionable insights for improving call campaigns
+- Better understanding of why calls fail (busy vs no-answer vs technical issues)
+
 ## [1.1.0] - 2025-08-08
 
 ### Major Features
