@@ -181,17 +181,10 @@ class SimpleDialerDaemon {
         // Remove + prefix for FreePBX compatibility
         $dialable_number = ltrim($contact['phone_number'], '+');
         
-        // Build channel string based on trunk technology for direct origination
-        if (strtoupper($trunk_tech) == 'PJSIP') {
-            // For PJSIP, use the format: PJSIP/number@trunk
-            $channel = "PJSIP/{$dialable_number}@{$trunk_name}";
-        } else if (strtoupper($trunk_tech) == 'SIP') {
-            // For SIP, use the format: SIP/trunk/number
-            $channel = "SIP/{$trunk_name}/{$dialable_number}";
-        } else {
-            // Fallback to Local channel for other technologies
-            $channel = "Local/{$dialable_number}@from-internal";
-        }
+        // Use Local channel to route through FreePBX outbound routes
+        // This ensures proper trunk authentication and routing rules are applied
+        // Direct trunk dialing (PJSIP/number@trunk) bypasses authentication and causes 403 errors
+        $channel = "Local/{$dialable_number}@from-internal";
         
         echo "DEBUG: Channel string: $channel\n";
         echo "DEBUG: Context: simpledialer-outbound\n";
@@ -242,23 +235,106 @@ class SimpleDialerDaemon {
     }
     
     private function cleanupCompletedCalls() {
+        // Process any pending AMI events first
+        $this->processAMIEvents();
+
         $current_time = time();
         foreach ($this->active_calls as $call_id => $call_info) {
             // Check if call is still active via AMI
             $channel_status = $this->checkChannelStatus($call_info['channel']);
-            
+
             // Remove calls that are no longer active or older than 2 minutes
             if (!$channel_status || ($current_time - $call_info['start_time'] > 120)) {
+                // Only update if we haven't received a UserEvent status yet
+                if (!isset($call_info['status_updated'])) {
+                    echo "Call completed without UserEvent, marking as completed: {$call_info['phone_number']}\n";
+                    $this->updateContactStatus($call_info['contact_id'], 'called');
+                    $this->updateCallStatus($call_id, 'completed');
+                }
+
                 unset($this->active_calls[$call_id]);
                 echo "Cleaned up completed call: {$call_info['phone_number']}\n";
-                
-                // Update contact status and call log based on call result
-                if (!$channel_status) {
-                    $this->updateContactStatus($call_info['contact_id'], 'called');
-                    $this->updateCallStatus($call_id, 'answered');
+            }
+        }
+    }
+
+    private function processAMIEvents() {
+        // Read and process any pending AMI events
+        while ($event = $this->ami->wait_response(false)) {
+            if (isset($event['Event']) && $event['Event'] == 'UserEvent') {
+                if (isset($event['UserEvent']) && $event['UserEvent'] == 'SimpleDialerStatus') {
+                    $this->handleCallStatusEvent($event);
                 }
             }
         }
+    }
+
+    private function handleCallStatusEvent($event) {
+        $call_id = isset($event['CallID']) ? $event['CallID'] : null;
+        $status = isset($event['Status']) ? $event['Status'] : 'UNKNOWN';
+        $duration = isset($event['Duration']) ? intval($event['Duration']) : 0;
+        $answer_time = isset($event['AnswerTime']) ? $event['AnswerTime'] : null;
+        $hangup_time = isset($event['HangupTime']) ? $event['HangupTime'] : null;
+        $hangup_cause = isset($event['HangupCause']) ? $event['HangupCause'] : '';
+        $voicemail = isset($event['Voicemail']) ? intval($event['Voicemail']) : 0;
+
+        if (!$call_id || !isset($this->active_calls[$call_id])) {
+            return;
+        }
+
+        $call_info = $this->active_calls[$call_id];
+
+        echo "Received status for call {$call_id}: {$status}\n";
+
+        // Map Asterisk DIALSTATUS to user-friendly status
+        $mapped_status = $this->mapDialStatus($status);
+
+        // Update call log with detailed information
+        $sql = "UPDATE simpledialer_call_logs SET
+                status = ?,
+                duration = ?,
+                answer_time = ?,
+                hangup_time = ?,
+                hangup_cause = ?,
+                voicemail_detected = ?
+                WHERE call_id = ?";
+
+        $sth = $this->db->prepare($sql);
+        $sth->execute(array(
+            $mapped_status,
+            $duration,
+            $answer_time,
+            $hangup_time,
+            $hangup_cause,
+            $voicemail,
+            $call_id
+        ));
+
+        // Update contact status based on call result
+        $contact_status = ($status == 'ANSWER') ? 'called' : 'failed';
+        $this->updateContactStatus($call_info['contact_id'], $contact_status);
+
+        // Mark this call as status_updated so cleanupCompletedCalls doesn't override it
+        $this->active_calls[$call_id]['status_updated'] = true;
+
+        echo "Updated call {$call_id} with status: {$mapped_status}, duration: {$duration}s, voicemail: {$voicemail}\n";
+    }
+
+    private function mapDialStatus($asterisk_status) {
+        // Map Asterisk DIALSTATUS values to user-friendly status names
+        $status_map = array(
+            'ANSWER' => 'answered',
+            'NOANSWER' => 'no-answer',
+            'BUSY' => 'busy',
+            'CONGESTION' => 'congestion',
+            'CHANUNAVAIL' => 'unavailable',
+            'CANCEL' => 'cancelled',
+            'DONTCALL' => 'blocked',
+            'TORTURE' => 'rejected',
+            'INVALIDARGS' => 'invalid'
+        );
+
+        return isset($status_map[$asterisk_status]) ? $status_map[$asterisk_status] : strtolower($asterisk_status);
     }
     
     private function checkChannelStatus($channel) {
@@ -355,31 +431,63 @@ class SimpleDialerDaemon {
         $sth = $this->db->prepare($sql);
         $sth->execute(array($this->campaign_id));
         $campaign = $sth->fetch(PDO::FETCH_ASSOC);
-        
+
         // Get contact statistics
         $sql = "SELECT status, COUNT(*) as count FROM simpledialer_contacts WHERE campaign_id = ? GROUP BY status";
         $sth = $this->db->prepare($sql);
         $sth->execute(array($this->campaign_id));
         $contact_stats = $sth->fetchAll(PDO::FETCH_ASSOC);
-        
+
+        // Get detailed call status breakdown
+        $sql = "SELECT status, COUNT(*) as count, SUM(duration) as total_duration, SUM(voicemail_detected) as voicemail_count
+                FROM simpledialer_call_logs
+                WHERE campaign_id = ?
+                GROUP BY status";
+        $sth = $this->db->prepare($sql);
+        $sth->execute(array($this->campaign_id));
+        $call_status_breakdown = $sth->fetchAll(PDO::FETCH_ASSOC);
+
+        // Calculate statistics by status
+        $status_counts = array();
+        $total_duration = 0;
+        $total_voicemails = 0;
+
+        foreach ($call_status_breakdown as $row) {
+            $status_counts[$row['status']] = intval($row['count']);
+            $total_duration += intval($row['total_duration']);
+            $total_voicemails += intval($row['voicemail_count']);
+        }
+
         // Get call logs
-        $sql = "SELECT cl.*, c.phone_number, c.name FROM simpledialer_call_logs cl 
-                JOIN simpledialer_contacts c ON cl.contact_id = c.id 
+        $sql = "SELECT cl.*, c.phone_number, c.name FROM simpledialer_call_logs cl
+                JOIN simpledialer_contacts c ON cl.contact_id = c.id
                 WHERE cl.campaign_id = ? ORDER BY cl.created_at";
         $sth = $this->db->prepare($sql);
         $sth->execute(array($this->campaign_id));
         $call_logs = $sth->fetchAll(PDO::FETCH_ASSOC);
-        
-        $success_rate = $total > 0 ? round(($successful / $total) * 100, 1) : 0;
-        
+
+        $answered_count = isset($status_counts['answered']) ? $status_counts['answered'] : 0;
+        $success_rate = $total > 0 ? round(($answered_count / $total) * 100, 1) : 0;
+
         return array(
             'campaign' => $campaign,
             'stats' => array(
                 'total_contacts' => $total,
                 'successful_calls' => $successful,
                 'failed_calls' => $failed,
+                'answered' => isset($status_counts['answered']) ? $status_counts['answered'] : 0,
+                'no_answer' => isset($status_counts['no-answer']) ? $status_counts['no-answer'] : 0,
+                'busy' => isset($status_counts['busy']) ? $status_counts['busy'] : 0,
+                'congestion' => isset($status_counts['congestion']) ? $status_counts['congestion'] : 0,
+                'unavailable' => isset($status_counts['unavailable']) ? $status_counts['unavailable'] : 0,
+                'cancelled' => isset($status_counts['cancelled']) ? $status_counts['cancelled'] : 0,
+                'other' => isset($status_counts['completed']) ? $status_counts['completed'] : 0,
+                'total_duration' => $total_duration,
+                'avg_duration' => $answered_count > 0 ? round($total_duration / $answered_count, 1) : 0,
+                'voicemail_count' => $total_voicemails,
                 'success_rate' => $success_rate
             ),
+            'call_status_breakdown' => $call_status_breakdown,
             'contact_stats' => $contact_stats,
             'call_logs' => $call_logs,
             'generated_at' => date('Y-m-d H:i:s')
@@ -405,10 +513,22 @@ class SimpleDialerDaemon {
         
         $content .= "STATISTICS\n";
         $content .= "----------\n";
-        $content .= "Total Contacts: " . $report_data['stats']['total_contacts'] . "\n";
-        $content .= "Successful Calls: " . $report_data['stats']['successful_calls'] . "\n";
-        $content .= "Failed Calls: " . $report_data['stats']['failed_calls'] . "\n";
-        $content .= "Success Rate: " . $report_data['stats']['success_rate'] . "%\n\n";
+        $content .= "Total Contacts: " . $report_data['stats']['total_contacts'] . "\n\n";
+
+        $content .= "Call Status Breakdown:\n";
+        $content .= "  Answered: " . $report_data['stats']['answered'] . "\n";
+        $content .= "  No Answer: " . $report_data['stats']['no_answer'] . "\n";
+        $content .= "  Busy: " . $report_data['stats']['busy'] . "\n";
+        $content .= "  Congestion: " . $report_data['stats']['congestion'] . "\n";
+        $content .= "  Unavailable: " . $report_data['stats']['unavailable'] . "\n";
+        $content .= "  Cancelled: " . $report_data['stats']['cancelled'] . "\n";
+        $content .= "  Other: " . $report_data['stats']['other'] . "\n\n";
+
+        $content .= "Call Metrics:\n";
+        $content .= "  Total Duration: " . gmdate("H:i:s", $report_data['stats']['total_duration']) . "\n";
+        $content .= "  Average Duration: " . $report_data['stats']['avg_duration'] . " seconds\n";
+        $content .= "  Voicemails Detected: " . $report_data['stats']['voicemail_count'] . "\n";
+        $content .= "  Success Rate: " . $report_data['stats']['success_rate'] . "%\n\n";
         
         if (!empty($report_data['contact_stats'])) {
             $content .= "CONTACT STATUS BREAKDOWN\n";
@@ -477,10 +597,21 @@ class SimpleDialerDaemon {
         
         $message .= "SUMMARY:\n";
         $message .= "--------\n";
-        $message .= "Total Contacts: " . $report_data['stats']['total_contacts'] . "\n";
-        $message .= "Successful Calls: " . $report_data['stats']['successful_calls'] . "\n";
-        $message .= "Failed Calls: " . $report_data['stats']['failed_calls'] . "\n";
-        $message .= "Success Rate: " . $report_data['stats']['success_rate'] . "%\n\n";
+        $message .= "Total Contacts: " . $report_data['stats']['total_contacts'] . "\n\n";
+
+        $message .= "Call Status Breakdown:\n";
+        $message .= "  Answered: " . $report_data['stats']['answered'] . "\n";
+        $message .= "  No Answer: " . $report_data['stats']['no_answer'] . "\n";
+        $message .= "  Busy: " . $report_data['stats']['busy'] . "\n";
+        $message .= "  Congestion: " . $report_data['stats']['congestion'] . "\n";
+        $message .= "  Unavailable: " . $report_data['stats']['unavailable'] . "\n";
+        $message .= "  Cancelled: " . $report_data['stats']['cancelled'] . "\n\n";
+
+        $message .= "Call Metrics:\n";
+        $message .= "  Total Duration: " . gmdate("H:i:s", $report_data['stats']['total_duration']) . "\n";
+        $message .= "  Average Duration: " . $report_data['stats']['avg_duration'] . " seconds\n";
+        $message .= "  Voicemails Detected: " . $report_data['stats']['voicemail_count'] . "\n";
+        $message .= "  Success Rate: " . $report_data['stats']['success_rate'] . "%\n\n";
         
         $message .= "Full report attached.\n\n";
         $message .= "Generated by Simple Dialer Module";
