@@ -43,9 +43,20 @@ try {
         'CANCEL' => 'cancelled'
     );
 
-    $mapped_status = isset($status_map[$status]) ? $status_map[$status] : strtolower($status);
+    $mapped_status = isset($status_map[$status]) ? $status_map[$status] : strtolower(trim($status));
 
-    // Update call log
+    // Never write an empty/unknown status. The hangup (h) extension can fire with an
+    // empty DIALSTATUS (no Dial() runs in the simpledialer-outbound context); writing
+    // that here would mark a connected call as failed. Bail out instead of clobbering.
+    if ($mapped_status === '') {
+        error_log("SimpleDialer: skipping update for {$call_id} - empty status");
+        fwrite(STDOUT, "VERBOSE \"SimpleDialer: Call {$call_id} skipped (empty status)\" 3\n");
+        fflush(STDOUT);
+        exit(0);
+    }
+
+    // Update call log. The "status <> 'answered'" guard makes a confirmed answered call
+    // terminal, so a late h-extension pass can't downgrade it to a failure status.
     $sql = "UPDATE simpledialer_call_logs
             SET status = ?,
                 duration = ?,
@@ -53,7 +64,8 @@ try {
                 hangup_time = ?,
                 hangup_cause = ?,
                 voicemail_detected = ?
-            WHERE call_id = ?";
+            WHERE call_id = ?
+              AND status <> 'answered'";
 
     $stmt = $db->prepare($sql);
     $stmt->execute(array(

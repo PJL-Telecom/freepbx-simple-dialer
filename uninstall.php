@@ -10,6 +10,13 @@ if (file_exists($extensions_file)) {
     out(_('Removed extensions_simpledialer.conf'));
 }
 
+// Remove the AGI status-update script installed into agi-bin
+$agi_dest = '/var/lib/asterisk/agi-bin/simpledialer_update.php';
+if (file_exists($agi_dest)) {
+    unlink($agi_dest);
+    out(_('Removed simpledialer_update.php from agi-bin'));
+}
+
 // Remove include from extensions_custom.conf
 $extensions_custom_conf = '/etc/asterisk/extensions_custom.conf';
 $include_line = '#include extensions_simpledialer.conf';

@@ -2,7 +2,7 @@
 	<rawname>simpledialer</rawname>
 	<repo>standard</repo>
 	<name>Simple Dialer</name>
-	<version>1.1.0</version>
+	<version>1.1.2</version>
 	<publisher>PJL Telecom</publisher>
 	<license>GPLv3+</license>
 	<licenselink>http://www.gnu.org/licenses/gpl-3.0.txt</licenselink>
@@ -12,6 +12,7 @@
 		Simple automated dialer with concurrent call limiting, AMD voicemail detection, and campaign management
 	</description>
 	<changelog>
+		*1.1.2* Fix incorrect call status: install the AGI script to /var/lib/asterisk/agi-bin so call outcomes are recorded; harden status updates against empty/lost values on Asterisk 18+/22
 		*1.1.0* Added AMD (Answering Machine Detection), improved installer, fixed FreePBX tamper warnings
 		*1.0.0* Initial Release
 	</changelog>
