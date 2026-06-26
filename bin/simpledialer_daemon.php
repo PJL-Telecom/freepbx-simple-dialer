@@ -190,7 +190,9 @@ class SimpleDialerDaemon {
         // Use Local channel to route through FreePBX outbound routes
         // This ensures proper trunk authentication and routing rules are applied
         // Direct trunk dialing (PJSIP/number@trunk) bypasses authentication and causes 403 errors
-        $channel = "Local/{$dialable_number}@from-internal";
+        // The /n suffix disables Local channel optimization so the channel (and its
+        // status vars / h extension) survive instead of masquerading away mid-call.
+        $channel = "Local/{$dialable_number}@from-internal/n";
         
         echo "DEBUG: Channel string: $channel\n";
         echo "DEBUG: Context: simpledialer-outbound\n";
@@ -216,7 +218,7 @@ class SimpleDialerDaemon {
             'Timeout' => '30000',
             'CallerID' => '"' . $cid_name . '" <' . $cid_num . '>',
             'Variable' => implode(',', array(
-                'CALL_ID=' . $call_id,
+                '__CALL_ID=' . $call_id,  // inherited so the AGI in s/h targets the right call_logs row
                 'AUDIO_FILE=' . $this->campaign['audio_file'],
                 'CAMPAIGN_ID=' . $this->campaign_id,
                 'CONTACT_ID=' . $contact['id'],

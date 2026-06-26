@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2]
+
+### Fixed
+- **Incorrect Call Status (calls marked Failed even though they connect)**: The dialplan calls `AGI(simpledialer_update.php,...)` by bare name, which Asterisk resolves against `astagidir` (`/var/lib/asterisk/agi-bin/`), but `install.php` never deployed the script there. On a fresh install the AGI was never found, so `simpledialer_call_logs` rows were never updated past `initiated` and contacts ended up marked failed/timeout. `install.php` now copies the AGI into `/var/lib/asterisk/agi-bin/` (and `uninstall.php` removes it).
+- **Status overwritten on Asterisk 18+/22**: Hardened the status pipeline so a connected call can't be downgraded:
+  - AGI skips updates with an empty status and won't overwrite a row already marked `answered`.
+  - Dialplan uses inherited (`__`) `ANSWER_EPOCH` / `ANSWER_TIME` / `SIMPLEDIALER_UPDATED` and the `h` extension falls back to `NOANSWER` instead of an empty `DIALSTATUS`.
+  - Daemon originates with `Local/{number}@from-internal/n` (no channel optimization) and passes `__CALL_ID` so the AGI always targets the correct row.
+
 ## [1.1.1] - 2025-11-03
 
 ### Fixed

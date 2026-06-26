@@ -89,6 +89,30 @@ if (file_exists($daemon_script)) {
     chmod($daemon_script, 0755);
 }
 
+// Install the AGI status-update script into Asterisk's agi-bin.
+// The dialplan calls AGI(simpledialer_update.php,...) by bare name, which Asterisk
+// resolves against astagidir (/var/lib/asterisk/agi-bin). Without this, the AGI is
+// never found, call_logs are never updated past 'initiated', and contacts get marked
+// failed/timeout even when the call actually connected.
+$agi_src  = __DIR__ . '/agi/simpledialer_update.php';
+$agi_dir  = '/var/lib/asterisk/agi-bin';
+$agi_dest = $agi_dir . '/simpledialer_update.php';
+if (file_exists($agi_src)) {
+    if (!is_dir($agi_dir)) {
+        mkdir($agi_dir, 0755, true);
+    }
+    if (copy($agi_src, $agi_dest)) {
+        chmod($agi_dest, 0755);
+        @chown($agi_dest, 'asterisk');
+        @chgrp($agi_dest, 'asterisk');
+        out(_('AGI status-update script installed to ') . $agi_dest);
+    } else {
+        out(_('Warning: failed to copy AGI script to ') . $agi_dest);
+    }
+} else {
+    out(_('Warning: agi/simpledialer_update.php not found in module'));
+}
+
 // Install SimpleDialer dialplan context as separate file
 $extensions_file = '/etc/asterisk/extensions_simpledialer.conf';
 $module_context_file = __DIR__ . '/extensions_simpledialer.conf';
