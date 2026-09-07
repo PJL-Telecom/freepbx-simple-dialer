@@ -58,7 +58,7 @@
 			<field name="answer_time" type="datetime" notnull="false"/>
 			<field name="hangup_time" type="datetime" notnull="false"/>
 			<field name="hangup_cause" type="string" length="50"/>
-			<field name="voicemail_detected" type="boolean" default="false"/>
+			<field name="voicemail_detected" type="boolean" default="0"/>
 			<field name="created_at" type="datetime" notnull="false"/>
 		</table>
 	</database>
